@@ -1,9 +1,7 @@
 ﻿using Newtonsoft.Json;
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -13,64 +11,106 @@ namespace EridanSharp
 {
     public class OAuth2
     {
-        private string redirectUri; //The address wich will open after the authentication.
-        private string clientId;    //Client ID from console cloud google.
-        private string clientSecret;//Client secret from console cloud google.
-        public string accessToken; // ---.
+        private HttpListenerContext context;
+        private OAuth2Info oAuth2Info;
+        private OAuth2Request oAuth2Request;
 
-        private string authorizationRequest; // The OAuth 2.0 authorization request.
-        private const string requestAPI = "https://accounts.google.com/o/oauth2/v2/auth"; // The beginning of the authorizationRequest.
-        private const string responseType = "code"; // The beginning of the authorizationRequest.
-        private const string scope = "https://www.googleapis.com/auth/gmail.send"; // ---.
-        private const string accessType = "offline"; // ---.
-        private const string includeGrantedScopes = "true"; // ---.
-        private const string state = "state_parameter_passthrough_value"; // ---.
-        private const string grantType = "authorization_code"; // ---.
-        HttpListenerContext context;
-
-        public OAuth2(string clientId, string clientSecret)
+        private class OAuth2Info
         {
-            this.clientId = clientId;
-            this.clientSecret = clientSecret;
+            public string accessToken;          // Access token is the thing that applications use to make API requests on behalf of a user.
+            public string authorizationCode;    // The authorization code grant is used when an application exchanges an authorization code for an access token.
+            public string redirectUri;          // The address wich will open after the authentication.
+            public string clientId;             // Client ID from console cloud google.
+            public string clientSecret;         // Client secret from console cloud google.
+            public string sucessPage;           // The offline page will open after successful authorization.
+            public string unsucessPage;         // The offline page will open after unsuccessful authorization.
         }
-        public async Task<bool> Authentication()
+        private class OAuth2Request
         {
+            public readonly string requestAPI = "https://accounts.google.com/o/oauth2/v2/auth";   // The beginning part of the authorization request.
+            public readonly string scope = "https://www.googleapis.com/auth/gmail.send";          // Scope is a mechanism in OAuth 2.0 to limit an application's access to a user's account.
+            public readonly string responseType = "code";                                         // The Response Mode determines how the Authorization Server returns result parameters from the Authorization Endpoint.
+            public readonly string accessType = "offline";                                        // Indicates whether your application can refresh access tokens when the user is not present at the browser.
+            public readonly string includeGrantedScopes = "true";                                 // Enables applications to use incremental authorization to request access to additional scopes in context.
+            public readonly string state = "state_parameter_passthrough_value";                   // Specifies any string value that your application uses to maintain state between your authorization request and the authorization server's response.
+            public readonly string grantType = "authorization_code";                              // “grant type” refers to the way an application gets an access token.
+        }
+        public OAuth2(string clientId, string clientSecret, string sucessPage, string unsucessPage)
+        {
+            oAuth2Info = new OAuth2Info();
+            oAuth2Request = new OAuth2Request();
+
+            if (sucessPage != null)
+            {
+                oAuth2Info.sucessPage = sucessPage;
+            }
+            else
+            {
+                oAuth2Info.sucessPage = null;
+            }
+
+            if (unsucessPage != null)
+            {
+                oAuth2Info.unsucessPage = unsucessPage;
+            }
+            else
+            {
+                oAuth2Info.unsucessPage = null;
+            }
+
+            oAuth2Info.clientId = clientId;
+            oAuth2Info.clientSecret = clientSecret;
+        }
+        public async Task<bool> AuthenticationAsync()
+        {
+
             Debug.WriteLine("Start authentication.");
             // Creates a redirect URI using an available port on the loopback address.
-            redirectUri = $"http://{IPAddress.Loopback}:{GetRandomUnusedPort()}/";
-            Debug.WriteLine("Redirect URI: " + redirectUri);
+            oAuth2Info.redirectUri = $"http://{IPAddress.Loopback}:{GetRandomUnusedPort()}/";
+            Debug.WriteLine("Redirect URI: " + oAuth2Info.redirectUri);
+
+            if (File.Exists(@"token.json"))
+            {
+                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(@"token.json"));
+                return true;
+            }
 
             // Creates an HttpListener to listen for requests on that redirect URI.
             var http = new HttpListener();
-            http.Prefixes.Add(redirectUri);
+            http.Prefixes.Add(oAuth2Info.redirectUri);
             Debug.WriteLine("Listening..");
             http.Start();
             // Creates the OAuth 2.0 authorization request.
             //client id: 271195115551-ceelr2teuhbeq3guse4edk13pcjapaea.apps.googleusercontent.com
             string authorizationRequest =
-                requestAPI +
-                "?response_type=" + responseType +
-                "&scope=" + scope +
-                "&access_type=" + accessType +
-                "&include_granted_scopes=" + includeGrantedScopes +
-                "&state=" + state +
-                "&client_id=" + clientId +
-                "&redirect_uri=" + redirectUri;
+                oAuth2Request.requestAPI +
+                "?response_type=" + oAuth2Request.responseType +
+                "&scope=" + oAuth2Request.scope +
+                "&access_type=" + oAuth2Request.accessType +
+                "&include_granted_scopes=" + oAuth2Request.includeGrantedScopes +
+                "&state=" + oAuth2Request.state +
+                "&client_id=" + oAuth2Info.clientId +
+                "&redirect_uri=" + oAuth2Info.redirectUri;
 
             // Opens request in the browser.
             Process.Start(authorizationRequest);
 
             // Waits for the OAuth authorization response.
-
             context = await http.GetContextAsync();
+
+            if (context.Response.StatusCode == 401)
+            {
+                Debug.WriteLine("401401041140014010401040140110401040100140140FJLNDKSLNFSNKDDJFKNKJDS");
+                return false;
+            }
 
             // Makes token request.
             string tokenBody =
                 "code=" + GetContextValue("code") +
-                "&client_id=" + clientId +
-                "&client_secret=" + clientSecret +
-                "&redirect_uri=" + redirectUri +
-                "&grant_type=" + grantType;
+                "&client_id=" + oAuth2Info.clientId +
+                "&client_secret=" + oAuth2Info.clientSecret +
+                "&redirect_uri=" + oAuth2Info.redirectUri +
+                "&grant_type=" + oAuth2Request.grantType;
 
             // Sends the request
             HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create("https://accounts.google.com/o/oauth2/token");
@@ -97,7 +137,14 @@ namespace EridanSharp
                     // converts to dictionary
                     Dictionary<string, string> tokenEndpointDecoded = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
 
-                    accessToken = tokenEndpointDecoded["access_token"];
+                    oAuth2Info.accessToken = tokenEndpointDecoded["access_token"];
+
+                    File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
+
+                    if (File.Exists(oAuth2Info.sucessPage))
+                    {
+                        Process.Start(oAuth2Info.sucessPage);
+                    }
                     //await RequestUserInfoAsync(accessToken);
                 }
             }
@@ -116,13 +163,18 @@ namespace EridanSharp
                             Debug.WriteLine(responseText);
                         }
                     }
+                    if (File.Exists(oAuth2Info.unsucessPage))
+                    {
+                        Process.Start(oAuth2Info.unsucessPage);
+                    }
+                    return false;
                 }
             }
 
             return true;
         }
 
-        public async Task<int> send(MimeMessage message)
+        public async Task<int> SendAsync(MimeMessage message)
         {
             var url = "https://www.googleapis.com/gmail/v1/users/drsail043@gmail.com/messages/send";
 
@@ -131,7 +183,7 @@ namespace EridanSharp
 
             httpRequest.Accept = "application/json";
             httpRequest.ContentType = "application/json";
-            httpRequest.Headers["Authorization"] = "Bearer " + accessToken;
+            httpRequest.Headers["Authorization"] = "Bearer " + oAuth2Info.accessToken;
 
             string data = "{\"raw\":" + $" \"{message.GetMessageBase64()}" + @"""}";
 

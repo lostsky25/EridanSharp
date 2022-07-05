@@ -11,7 +11,6 @@ namespace EridanSharp
 {
     public class MimeMessage : ICrypt
     {
-        private bool isAttachment;
         private string messageBody;
 
         public Dictionary<string, string> types;
@@ -223,8 +222,6 @@ namespace EridanSharp
                     fstream.Read(bytes, 0, bytes.Length);
                     base64data = Convert.ToBase64String(bytes);
                 }
-                //bytes = File.ReadAllBytes(path);
-                //String file = Convert.ToBase64String(bytes);
             }
             catch (Exception ex)
             {
@@ -267,11 +264,12 @@ Content-Transfer-Encoding: quoted-printable
 
             if (attachments.Count > 0)
             {
-                messageBody += "--B164240059B29C0E4EFEC397\n";
 
                 foreach (var attachment in attachments)
                 {
                     string contentTypeForAttachment;
+
+                    messageBody += "--B164240059B29C0E4EFEC397\n";
 
                     if (types.ContainsKey(attachment.Item1.Extension))
                     {
@@ -289,11 +287,16 @@ Content-Disposition: attachment; filename = ""{attachment.Item1.Name}""
 Content-Description: {attachment.Item1.Name}
 
 ";
-                    messageBody += attachment.Item2.ToString();
+                    messageBody += attachment.Item2.ToString() + "\n\n";
                 }
+
+                messageBody += "--B164240059B29C0E4EFEC397--";
+            }
+            else
+            {
+                messageBody += "\n\n--B164240059B29C0E4EFEC397--";
             }
 
-            messageBody += "\n\n--B164240059B29C0E4EFEC397--";
 
             Debug.WriteLine(messageBody);
 

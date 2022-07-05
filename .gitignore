@@ -6,6 +6,9 @@
 *.user
 *.sln.docstates
 
+# Bat files
+*.bat
+
 # Build results
 
 [Dd]ebug/

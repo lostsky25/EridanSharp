@@ -1,0 +1,2 @@
+# EridanSharp
+Library for .NET

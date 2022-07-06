@@ -148,7 +148,7 @@ namespace EridanSharp
             }
             set
             {
-                subject = value;
+                subject = Utf8EncodeSubject(value);
             }
         }
         public string ToEmail
@@ -246,9 +246,9 @@ namespace EridanSharp
             messageBody =
 $@"From: {FromEmail}
 To: {ToEmail}
+Content-Type: multipart/mixed; boundary=""B164240059B29C0E4EFEC397""
 Subject: {Subject}
 MIME-Version: 1.0 
-Content-Type: multipart/mixed; boundary=""B164240059B29C0E4EFEC397""
 
 --B164240059B29C0E4EFEC397
 Content-Type: multipart/alternative; boundary = ""B164240059B29C0E4EFEC397""
@@ -321,6 +321,20 @@ Content-Description: {attachment.Item1.Name}
         {
             var dataBytes = Convert.FromBase64String(data);
             return Encoding.UTF8.GetString(dataBytes);
+        }
+
+        private string Utf8EncodeSubject(string data)
+        {
+            string template = "=?utf-8?Q?";
+            byte[] dBytes = Encoding.UTF8.GetBytes(data);
+
+            foreach (var b in dBytes)
+            {
+                template += "=" + b.ToString("X");
+            }
+
+            template += "?=";
+            return template;
         }
     }
 }

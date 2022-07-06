@@ -1,11 +1,15 @@
 ﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Timers;
 
 namespace EridanSharp
 {
@@ -24,6 +28,8 @@ namespace EridanSharp
             public string clientSecret;         // Client secret from console cloud google.
             public string sucessPage;           // The offline page will open after successful authorization.
             public string unsucessPage;         // The offline page will open after unsuccessful authorization.
+            public string expiresIn;            // How long to live\available current token.
+            public string refreshToken;         // Needs for updating current token.
         }
         private class OAuth2Request
         {
@@ -61,6 +67,98 @@ namespace EridanSharp
             oAuth2Info.clientId = clientId;
             oAuth2Info.clientSecret = clientSecret;
         }
+        public void StartTimer()
+        {
+            System.Timers.Timer t = new System.Timers.Timer(1800000);
+            t.AutoReset = true;
+            t.Elapsed += new ElapsedEventHandler(OnTimedEvent);
+            t.Start();
+        }
+
+        private async void OnTimedEvent(Object source, ElapsedEventArgs e)
+        {
+            RefreshToken();
+            Debug.WriteLine("TIMER:\n" + "refresh_token: " + oAuth2Info.refreshToken + "\naccess_token: " + oAuth2Info.accessToken);
+        }
+        private async Task<bool> RefreshToken()
+        {
+            // Makes token request.
+            string tokenBody =
+                "&client_id=" + oAuth2Info.clientId +
+                "&client_secret=" + oAuth2Info.clientSecret +
+                "&refresh_token=" + oAuth2Info.refreshToken +
+                "&grant_type=refresh_token" +
+                "&access_type=offline" +
+                "&prompt=consent";
+
+            // Sends the request
+            HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create("https://accounts.google.com/o/oauth2/token");
+            tokenRequest.Method = "POST";
+            tokenRequest.ContentType = "application/x-www-form-urlencoded";
+            tokenRequest.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+            byte[] tokenRequestBodyBytes = Encoding.ASCII.GetBytes(tokenBody);
+            tokenRequest.ContentLength = tokenRequestBodyBytes.Length;
+            using (Stream requestStream = tokenRequest.GetRequestStream())
+            {
+                await requestStream.WriteAsync(tokenRequestBodyBytes, 0, tokenRequestBodyBytes.Length);
+            }
+
+            try
+            {
+                // gets the response
+                WebResponse tokenResponse = await tokenRequest.GetResponseAsync();
+                using (StreamReader reader = new StreamReader(tokenResponse.GetResponseStream()))
+                {
+                    // reads response body
+                    string responseText = await reader.ReadToEndAsync();
+                    Debug.WriteLine(responseText);
+
+                    // converts to dictionary
+                    Dictionary<string, string> tokenEndpointDecoded = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
+
+                    oAuth2Info.accessToken = tokenEndpointDecoded["access_token"];
+                    oAuth2Info.refreshToken = tokenEndpointDecoded["refresh_token"];
+                    oAuth2Info.expiresIn = tokenEndpointDecoded["expires_in"];
+
+                    File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
+
+                    //if (File.Exists(oAuth2Info.sucessPage))
+                    //{
+                    //    Process.Start(oAuth2Info.sucessPage);
+                    //    return true;
+                    //}
+                    //else
+                    //{
+                    //    return false;
+                    //}
+                    //await RequestUserInfoAsync(accessToken);
+                    return true;
+                }
+            }
+            catch (WebException ex)
+            {
+                if (ex.Status == WebExceptionStatus.ProtocolError)
+                {
+                    var response = ex.Response as HttpWebResponse;
+                    if (response != null)
+                    {
+                        Debug.WriteLine("HTTP: " + response.StatusCode);
+                        using (StreamReader reader = new StreamReader(response.GetResponseStream()))
+                        {
+                            // reads response body
+                            string responseText = await reader.ReadToEndAsync();
+                            Debug.WriteLine(responseText);
+                        }
+                    }
+                    //if (File.Exists(oAuth2Info.unsucessPage))
+                    //{
+                    //    Process.Start(oAuth2Info.unsucessPage);
+                    //}
+                }
+                return false;
+            }
+
+        }
         public async Task<bool> AuthenticationAsync()
         {
 
@@ -71,8 +169,30 @@ namespace EridanSharp
 
             if (File.Exists(@"token.json"))
             {
+                //"https://gmail.googleapis.com/gmail/v1/users/drsail043@gmail.com/profile"
                 oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(@"token.json"));
-                return true;
+                string data;
+                try
+                {
+                    var httpRequest = (HttpWebRequest)WebRequest.Create("https://gmail.googleapis.com/gmail/v1/users/drsail043@gmail.com/profile");
+                    httpRequest.Method = "GET";
+
+                    httpRequest.Accept = "application/json";
+                    httpRequest.ContentType = "application/json";
+                    httpRequest.Headers["Authorization"] = "Bearer " + oAuth2Info.accessToken;
+
+                    WebResponse webResponse = httpRequest.GetResponse();
+                    Stream webStream = webResponse.GetResponseStream();
+
+                    StreamReader reader = new StreamReader(webStream);
+                    data = reader.ReadToEnd();
+                    StartTimer();
+                    return true;
+                }
+                catch (WebException ex)
+                {
+                    Debug.WriteLine("WebExeption: " + ex.Message);
+                }
             }
 
             // Creates an HttpListener to listen for requests on that redirect URI.
@@ -97,12 +217,6 @@ namespace EridanSharp
 
             // Waits for the OAuth authorization response.
             context = await http.GetContextAsync();
-
-            if (context.Response.StatusCode == 401)
-            {
-                Debug.WriteLine("401401041140014010401040140110401040100140140FJLNDKSLNFSNKDDJFKNKJDS");
-                return false;
-            }
 
             // Makes token request.
             string tokenBody =
@@ -138,6 +252,8 @@ namespace EridanSharp
                     Dictionary<string, string> tokenEndpointDecoded = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
 
                     oAuth2Info.accessToken = tokenEndpointDecoded["access_token"];
+                    oAuth2Info.expiresIn = tokenEndpointDecoded["expires_in"];
+                    oAuth2Info.refreshToken = tokenEndpointDecoded["refresh_token"];
 
                     File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
 
@@ -167,10 +283,12 @@ namespace EridanSharp
                     {
                         Process.Start(oAuth2Info.unsucessPage);
                     }
+                    StartTimer();
                     return false;
                 }
             }
 
+            StartTimer();
             return true;
         }
 

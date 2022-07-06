@@ -9,6 +9,12 @@
 # Bat files
 *.bat
 
+# PowerShell scripts
+*.ps1
+
+# Nuget packages
+*.nupkg
+
 # Build results
 
 [Dd]ebug/

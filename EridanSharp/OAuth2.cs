@@ -21,26 +21,28 @@ namespace EridanSharp
 
         private class OAuth2Info
         {
-            public string accessToken;          // Access token is the thing that applications use to make API requests on behalf of a user.
+            public string access_token;          // Access token is the thing that applications use to make API requests on behalf of a user.
             public string authorizationCode;    // The authorization code grant is used when an application exchanges an authorization code for an access token.
             public string redirectUri;          // The address wich will open after the authentication.
             public string clientId;             // Client ID from console cloud google.
             public string clientSecret;         // Client secret from console cloud google.
             public string sucessPage;           // The offline page will open after successful authorization.
             public string unsucessPage;         // The offline page will open after unsuccessful authorization.
-            public string expiresIn;            // How long to live\available current token.
-            public string refreshToken;         // Needs for updating current token.
+            public string expires_in;            // How long to live\available current token.
+            public string refresh_token;         // Needs for updating current token.
         }
+
         private class OAuth2Request
         {
             public readonly string requestAPI = "https://accounts.google.com/o/oauth2/v2/auth";   // The beginning part of the authorization request.
-            public readonly string scope = "https://www.googleapis.com/auth/gmail.send";          // Scope is a mechanism in OAuth 2.0 to limit an application's access to a user's account.
+            public readonly string scope = "https://www.googleapis.com/auth/gmail.modify";          // Scope is a mechanism in OAuth 2.0 to limit an application's access to a user's account.
             public readonly string responseType = "code";                                         // The Response Mode determines how the Authorization Server returns result parameters from the Authorization Endpoint.
             public readonly string accessType = "offline";                                        // Indicates whether your application can refresh access tokens when the user is not present at the browser.
             public readonly string includeGrantedScopes = "true";                                 // Enables applications to use incremental authorization to request access to additional scopes in context.
             public readonly string state = "state_parameter_passthrough_value";                   // Specifies any string value that your application uses to maintain state between your authorization request and the authorization server's response.
             public readonly string grantType = "authorization_code";                              // “grant type” refers to the way an application gets an access token.
         }
+
         public OAuth2(string clientId, string clientSecret, string sucessPage, string unsucessPage)
         {
             oAuth2Info = new OAuth2Info();
@@ -78,7 +80,7 @@ namespace EridanSharp
         private async void OnTimedEvent(Object source, ElapsedEventArgs e)
         {
             RefreshToken();
-            Debug.WriteLine("TIMER:\n" + "refresh_token: " + oAuth2Info.refreshToken + "\naccess_token: " + oAuth2Info.accessToken);
+            Debug.WriteLine("TIMER:\n" + "refresh_token: " + oAuth2Info.refresh_token + "\naccess_token: " + oAuth2Info.access_token);
         }
         private async Task<bool> RefreshToken()
         {
@@ -86,7 +88,7 @@ namespace EridanSharp
             string tokenBody =
                 "&client_id=" + oAuth2Info.clientId +
                 "&client_secret=" + oAuth2Info.clientSecret +
-                "&refresh_token=" + oAuth2Info.refreshToken +
+                "&refresh_token=" + oAuth2Info.refresh_token +
                 "&grant_type=refresh_token" +
                 "&access_type=offline" +
                 "&prompt=consent";
@@ -116,9 +118,9 @@ namespace EridanSharp
                     // converts to dictionary
                     Dictionary<string, string> tokenEndpointDecoded = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
 
-                    oAuth2Info.accessToken = tokenEndpointDecoded["access_token"];
-                    oAuth2Info.refreshToken = tokenEndpointDecoded["refresh_token"];
-                    oAuth2Info.expiresIn = tokenEndpointDecoded["expires_in"];
+                    oAuth2Info.access_token = tokenEndpointDecoded["access_token"];
+                    oAuth2Info.refresh_token = tokenEndpointDecoded["refresh_token"];
+                    oAuth2Info.expires_in = tokenEndpointDecoded["expires_in"];
 
                     File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
 
@@ -174,18 +176,19 @@ namespace EridanSharp
                 string data;
                 try
                 {
-                    var httpRequest = (HttpWebRequest)WebRequest.Create("https://gmail.googleapis.com/gmail/v1/users/drsail043@gmail.com/profile");
+                    var httpRequest = (HttpWebRequest)WebRequest.Create("https://gmail.googleapis.com/gmail/v1/users/me/profile");
                     httpRequest.Method = "GET";
 
                     httpRequest.Accept = "application/json";
                     httpRequest.ContentType = "application/json";
-                    httpRequest.Headers["Authorization"] = "Bearer " + oAuth2Info.accessToken;
+                    httpRequest.Headers["Authorization"] = "Bearer " + oAuth2Info.access_token;
 
                     WebResponse webResponse = httpRequest.GetResponse();
-                    Stream webStream = webResponse.GetResponseStream();
 
-                    StreamReader reader = new StreamReader(webStream);
-                    data = reader.ReadToEnd();
+                    Stream webStream = webResponse.GetResponseStream();
+                    StreamReader sr = new StreamReader(webStream);
+                    data = sr.ReadToEnd();
+
                     StartTimer();
                     return true;
                 }
@@ -251,9 +254,9 @@ namespace EridanSharp
                     // converts to dictionary
                     Dictionary<string, string> tokenEndpointDecoded = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
 
-                    oAuth2Info.accessToken = tokenEndpointDecoded["access_token"];
-                    oAuth2Info.expiresIn = tokenEndpointDecoded["expires_in"];
-                    oAuth2Info.refreshToken = tokenEndpointDecoded["refresh_token"];
+                    oAuth2Info.access_token = tokenEndpointDecoded["access_token"];
+                    oAuth2Info.expires_in = tokenEndpointDecoded["expires_in"];
+                    oAuth2Info.refresh_token = tokenEndpointDecoded["refresh_token"];
 
                     File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
 
@@ -283,12 +286,12 @@ namespace EridanSharp
                     {
                         Process.Start(oAuth2Info.unsucessPage);
                     }
-                    StartTimer();
+                    //StartTimer();
                     return false;
                 }
             }
 
-            StartTimer();
+            //StartTimer();
             return true;
         }
 
@@ -301,7 +304,8 @@ namespace EridanSharp
 
             httpRequest.Accept = "application/json";
             httpRequest.ContentType = "application/json";
-            httpRequest.Headers["Authorization"] = "Bearer " + oAuth2Info.accessToken;
+            httpRequest.Headers["Authorization"] = "Bearer " + oAuth2Info.access_token;
+            File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
 
             string data = "{\"raw\":" + $" \"{message.GetMessageBase64()}" + @"""}";
 

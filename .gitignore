@@ -9,6 +9,11 @@
 # Bat files
 *.bat
 
+# Images
+*.ico
+*.icon
+*.png
+
 # PowerShell scripts
 *.ps1
 

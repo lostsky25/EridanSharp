@@ -324,12 +324,10 @@ namespace EridanSharp
 
             return 0;
         }
-
         public string GetContextValue(string name)
         {
             return context.Request.QueryString.Get(name);
         }
-
         public static int GetRandomUnusedPort()
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);

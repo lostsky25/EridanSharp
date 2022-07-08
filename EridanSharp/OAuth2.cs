@@ -18,6 +18,7 @@ namespace EridanSharp
         private HttpListenerContext context;
         private OAuth2Info oAuth2Info;
         private OAuth2Request oAuth2Request;
+        private HttpReq httpReq;
 
         private class OAuth2Info
         {
@@ -47,6 +48,7 @@ namespace EridanSharp
         {
             oAuth2Info = new OAuth2Info();
             oAuth2Request = new OAuth2Request();
+            httpReq = new HttpReq();
 
             if (sucessPage != null)
             {
@@ -79,13 +81,13 @@ namespace EridanSharp
 
         private async void OnTimedEvent(Object source, ElapsedEventArgs e)
         {
-            RefreshToken();
+            await RefreshTokenAsync();
             Debug.WriteLine("TIMER:\n" + "refresh_token: " + oAuth2Info.refresh_token + "\naccess_token: " + oAuth2Info.access_token);
         }
-        private async Task<bool> RefreshToken()
+        private async Task<bool> RefreshTokenAsync()
         {
             // Makes token request.
-            string tokenBody =
+            string data =
                 "&client_id=" + oAuth2Info.clientId +
                 "&client_secret=" + oAuth2Info.clientSecret +
                 "&refresh_token=" + oAuth2Info.refresh_token +
@@ -93,73 +95,54 @@ namespace EridanSharp
                 "&access_type=offline" +
                 "&prompt=consent";
 
-            // Sends the request
-            HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create("https://accounts.google.com/o/oauth2/token");
-            tokenRequest.Method = "POST";
-            tokenRequest.ContentType = "application/x-www-form-urlencoded";
-            tokenRequest.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
-            byte[] tokenRequestBodyBytes = Encoding.ASCII.GetBytes(tokenBody);
-            tokenRequest.ContentLength = tokenRequestBodyBytes.Length;
-            using (Stream requestStream = tokenRequest.GetRequestStream())
+            Dictionary<string, string> responseToken = await httpReq.SendPostRequestAsync("https://accounts.google.com/o/oauth2/token", data);
+
+            if (responseToken.ContainsKey("error"))
             {
-                await requestStream.WriteAsync(tokenRequestBodyBytes, 0, tokenRequestBodyBytes.Length);
-            }
-
-            try
-            {
-                // gets the response
-                WebResponse tokenResponse = await tokenRequest.GetResponseAsync();
-                using (StreamReader reader = new StreamReader(tokenResponse.GetResponseStream()))
-                {
-                    // reads response body
-                    string responseText = await reader.ReadToEndAsync();
-                    Debug.WriteLine(responseText);
-
-                    // converts to dictionary
-                    Dictionary<string, string> tokenEndpointDecoded = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
-
-                    oAuth2Info.access_token = tokenEndpointDecoded["access_token"];
-                    oAuth2Info.refresh_token = tokenEndpointDecoded["refresh_token"];
-                    oAuth2Info.expires_in = tokenEndpointDecoded["expires_in"];
-
-                    File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
-
-                    //if (File.Exists(oAuth2Info.sucessPage))
-                    //{
-                    //    Process.Start(oAuth2Info.sucessPage);
-                    //    return true;
-                    //}
-                    //else
-                    //{
-                    //    return false;
-                    //}
-                    //await RequestUserInfoAsync(accessToken);
-                    return true;
-                }
-            }
-            catch (WebException ex)
-            {
-                if (ex.Status == WebExceptionStatus.ProtocolError)
-                {
-                    var response = ex.Response as HttpWebResponse;
-                    if (response != null)
-                    {
-                        Debug.WriteLine("HTTP: " + response.StatusCode);
-                        using (StreamReader reader = new StreamReader(response.GetResponseStream()))
-                        {
-                            // reads response body
-                            string responseText = await reader.ReadToEndAsync();
-                            Debug.WriteLine(responseText);
-                        }
-                    }
-                    //if (File.Exists(oAuth2Info.unsucessPage))
-                    //{
-                    //    Process.Start(oAuth2Info.unsucessPage);
-                    //}
-                }
                 return false;
             }
+            else
+            {
+                oAuth2Info.access_token = responseToken["access_token"];
+                oAuth2Info.expires_in = responseToken["expires_in"];
+                File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
 
+                return true;
+            }
+
+        }
+        public async Task<bool> CheckExistTokenAsync()
+        {
+            if (File.Exists(@"token.json"))
+            {
+                //"https://gmail.googleapis.com/gmail/v1/users/me/profile"
+                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(@"token.json"));
+                string data;
+                try
+                {
+                    data = await httpReq.SendGetBearerAuthRequestAsync("https://gmail.googleapis.com/gmail/v1/users/me/profile", oAuth2Info.access_token);
+                    return true;
+                }
+                catch (WebException ex)
+                {
+                    Debug.WriteLine("WebExeption: " + ex.Message);
+                    if (await RefreshTokenAsync())
+                    {
+                        Debug.WriteLine("Refresh token was completed.");
+                        return true;
+                    }
+                    else
+                    {
+                        Debug.WriteLine("Refresh token wasn\'t completed.");
+                        return false;
+                    }
+
+                }
+            }
+            else
+            {
+                return false;
+            }
         }
         public async Task<bool> AuthenticationAsync()
         {
@@ -169,42 +152,12 @@ namespace EridanSharp
             oAuth2Info.redirectUri = $"http://{IPAddress.Loopback}:{GetRandomUnusedPort()}/";
             Debug.WriteLine("Redirect URI: " + oAuth2Info.redirectUri);
 
-            if (File.Exists(@"token.json"))
-            {
-                //"https://gmail.googleapis.com/gmail/v1/users/drsail043@gmail.com/profile"
-                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(@"token.json"));
-                string data;
-                try
-                {
-                    var httpRequest = (HttpWebRequest)WebRequest.Create("https://gmail.googleapis.com/gmail/v1/users/me/profile");
-                    httpRequest.Method = "GET";
-
-                    httpRequest.Accept = "application/json";
-                    httpRequest.ContentType = "application/json";
-                    httpRequest.Headers["Authorization"] = "Bearer " + oAuth2Info.access_token;
-
-                    WebResponse webResponse = httpRequest.GetResponse();
-
-                    Stream webStream = webResponse.GetResponseStream();
-                    StreamReader sr = new StreamReader(webStream);
-                    data = sr.ReadToEnd();
-
-                    StartTimer();
-                    return true;
-                }
-                catch (WebException ex)
-                {
-                    Debug.WriteLine("WebExeption: " + ex.Message);
-                }
-            }
-
             // Creates an HttpListener to listen for requests on that redirect URI.
             var http = new HttpListener();
             http.Prefixes.Add(oAuth2Info.redirectUri);
             Debug.WriteLine("Listening..");
             http.Start();
             // Creates the OAuth 2.0 authorization request.
-            //client id: 271195115551-ceelr2teuhbeq3guse4edk13pcjapaea.apps.googleusercontent.com
             string authorizationRequest =
                 oAuth2Request.requestAPI +
                 "?response_type=" + oAuth2Request.responseType +
@@ -222,82 +175,39 @@ namespace EridanSharp
             context = await http.GetContextAsync();
 
             // Makes token request.
-            string tokenBody =
-                "code=" + GetContextValue("code") +
-                "&client_id=" + oAuth2Info.clientId +
-                "&client_secret=" + oAuth2Info.clientSecret +
-                "&redirect_uri=" + oAuth2Info.redirectUri +
-                "&grant_type=" + oAuth2Request.grantType;
+            string data = "code=" + GetContextValue("code") + "&client_id=" + oAuth2Info.clientId + "&client_secret=" + oAuth2Info.clientSecret + "&redirect_uri=" + oAuth2Info.redirectUri + "&grant_type=" + oAuth2Request.grantType;
 
-            // Sends the request
-            HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create("https://accounts.google.com/o/oauth2/token");
-            tokenRequest.Method = "POST";
-            tokenRequest.ContentType = "application/x-www-form-urlencoded";
-            tokenRequest.Accept = "Accept=text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
-            byte[] tokenRequestBodyBytes = Encoding.ASCII.GetBytes(tokenBody);
-            tokenRequest.ContentLength = tokenRequestBodyBytes.Length;
-            using (Stream requestStream = tokenRequest.GetRequestStream())
+            Dictionary<string, string> tokenEndpointDecoded = await httpReq.SendPostRequestAsync("https://accounts.google.com/o/oauth2/token", data);
+            if (tokenEndpointDecoded.ContainsKey("error"))
             {
-                await requestStream.WriteAsync(tokenRequestBodyBytes, 0, tokenRequestBodyBytes.Length);
-            }
-
-            try
-            {
-                // gets the response
-                WebResponse tokenResponse = await tokenRequest.GetResponseAsync();
-                using (StreamReader reader = new StreamReader(tokenResponse.GetResponseStream()))
+                if (File.Exists(oAuth2Info.unsucessPage))
                 {
-                    // reads response body
-                    string responseText = await reader.ReadToEndAsync();
-                    Debug.WriteLine(responseText);
-
-                    // converts to dictionary
-                    Dictionary<string, string> tokenEndpointDecoded = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
-
-                    oAuth2Info.access_token = tokenEndpointDecoded["access_token"];
-                    oAuth2Info.expires_in = tokenEndpointDecoded["expires_in"];
-                    oAuth2Info.refresh_token = tokenEndpointDecoded["refresh_token"];
-
-                    File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
-
-                    if (File.Exists(oAuth2Info.sucessPage))
-                    {
-                        Process.Start(oAuth2Info.sucessPage);
-                    }
-                    //await RequestUserInfoAsync(accessToken);
+                    Process.Start(oAuth2Info.unsucessPage);
                 }
+                return false;
             }
-            catch (WebException ex)
+            else
             {
-                if (ex.Status == WebExceptionStatus.ProtocolError)
+                oAuth2Info.access_token = tokenEndpointDecoded["access_token"];
+                oAuth2Info.expires_in = tokenEndpointDecoded["expires_in"];
+                oAuth2Info.refresh_token = tokenEndpointDecoded["refresh_token"];
+
+                File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
+
+                if (File.Exists(oAuth2Info.sucessPage))
                 {
-                    var response = ex.Response as HttpWebResponse;
-                    if (response != null)
-                    {
-                        Debug.WriteLine("HTTP: " + response.StatusCode);
-                        using (StreamReader reader = new StreamReader(response.GetResponseStream()))
-                        {
-                            // reads response body
-                            string responseText = await reader.ReadToEndAsync();
-                            Debug.WriteLine(responseText);
-                        }
-                    }
-                    if (File.Exists(oAuth2Info.unsucessPage))
-                    {
-                        Process.Start(oAuth2Info.unsucessPage);
-                    }
-                    //StartTimer();
-                    return false;
+                    Process.Start(oAuth2Info.sucessPage);
                 }
             }
 
+            await RefreshTokenAsync();
             //StartTimer();
             return true;
         }
 
         public async Task<int> SendAsync(MimeMessage message)
         {
-            var url = "https://www.googleapis.com/gmail/v1/users/drsail043@gmail.com/messages/send";
+            var url = "https://www.googleapis.com/gmail/v1/users/me/messages/send";
 
             var httpRequest = (HttpWebRequest)WebRequest.Create(url);
             httpRequest.Method = "POST";
@@ -305,7 +215,7 @@ namespace EridanSharp
             httpRequest.Accept = "application/json";
             httpRequest.ContentType = "application/json";
             httpRequest.Headers["Authorization"] = "Bearer " + oAuth2Info.access_token;
-            File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
+            //File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
 
             string data = "{\"raw\":" + $" \"{message.GetMessageBase64()}" + @"""}";
 
@@ -324,10 +234,12 @@ namespace EridanSharp
 
             return 0;
         }
+
         public string GetContextValue(string name)
         {
             return context.Request.QueryString.Get(name);
         }
+
         public static int GetRandomUnusedPort()
         {
             var listener = new TcpListener(IPAddress.Loopback, 0);

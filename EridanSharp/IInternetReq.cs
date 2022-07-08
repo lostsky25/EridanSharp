@@ -8,9 +8,9 @@ namespace EridanSharp
 {
     interface IInternetReq
     {
-        string SendGetBearerAuthRequestAsync(string url, string token);
+        Task<string> SendGetBearerAuthRequestAsync(string url, string token);
         string SendGetBearerAuthRequest(string url, string token);
-        string SendPostRequestAsync(string url, string data);
-        string SendPostRequest(string url, string data);
+        Task<Dictionary<string, string>> SendPostRequestAsync(string url, string data);
+        Dictionary<string, string> SendPostRequest(string url, string data);
     }
 }

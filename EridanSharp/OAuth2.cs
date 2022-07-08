@@ -111,6 +111,34 @@ namespace EridanSharp
             }
 
         }
+
+        private bool RefreshToken()
+        {
+            // Makes token request.
+            string data =
+                "&client_id=" + oAuth2Info.clientId +
+                "&client_secret=" + oAuth2Info.clientSecret +
+                "&refresh_token=" + oAuth2Info.refresh_token +
+                "&grant_type=refresh_token" +
+                "&access_type=offline" +
+                "&prompt=consent";
+
+            Dictionary<string, string> responseToken = httpReq.SendPostRequest("https://accounts.google.com/o/oauth2/token", data);
+
+            if (responseToken.ContainsKey("error"))
+            {
+                return false;
+            }
+            else
+            {
+                oAuth2Info.access_token = responseToken["access_token"];
+                oAuth2Info.expires_in = responseToken["expires_in"];
+                File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
+
+                return true;
+            }
+
+        }
         public async Task<bool> CheckExistTokenAsync()
         {
             if (File.Exists(@"token.json"))
@@ -127,6 +155,39 @@ namespace EridanSharp
                 {
                     Debug.WriteLine("WebExeption: " + ex.Message);
                     if (await RefreshTokenAsync())
+                    {
+                        Debug.WriteLine("Refresh token was completed.");
+                        return true;
+                    }
+                    else
+                    {
+                        Debug.WriteLine("Refresh token wasn\'t completed.");
+                        return false;
+                    }
+
+                }
+            }
+            else
+            {
+                return false;
+            }
+        }
+        public bool CheckExistToken()
+        {
+            if (File.Exists(@"token.json"))
+            {
+                //"https://gmail.googleapis.com/gmail/v1/users/me/profile"
+                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(@"token.json"));
+                string data;
+                try
+                {
+                    data = httpReq.SendGetBearerAuthRequest("https://gmail.googleapis.com/gmail/v1/users/me/profile", oAuth2Info.access_token);
+                    return true;
+                }
+                catch (WebException ex)
+                {
+                    Debug.WriteLine("WebExeption: " + ex.Message);
+                    if (RefreshToken())
                     {
                         Debug.WriteLine("Refresh token was completed.");
                         return true;

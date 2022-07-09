@@ -25,7 +25,7 @@ namespace EridanSharp
         private class OAuth2Info
         {
             public string access_token;          // Access token is the thing that applications use to make API requests on behalf of a user.
-            //public string authorizationCode;    // The authorization code grant is used when an application exchanges an authorization code for an access token.
+            public string authorizationCode;    // The authorization code grant is used when an application exchanges an authorization code for an access token.
             public string redirectUri;          // The address wich will open after the authentication.
             public string clientId;             // Client ID from console cloud google.
             public string clientSecret;         // Client secret from console cloud google.
@@ -340,8 +340,7 @@ namespace EridanSharp
             //StartTimer();
             return true;
         }
-
-        public async Task<int> SendAsync(MimeMessage message)
+        public int Send(MimeMessage message)
         {
             var url = "https://www.googleapis.com/gmail/v1/users/me/messages/send";
 
@@ -355,7 +354,7 @@ namespace EridanSharp
 
             string data = "{\"raw\":" + $" \"{message.GetMessageBase64()}" + @"""}";
 
-            using (var streamWriter = new StreamWriter(await httpRequest.GetRequestStreamAsync()))
+            using (var streamWriter = new StreamWriter(httpRequest.GetRequestStream()))
             {
                 streamWriter.Write(data);
             }

@@ -148,7 +148,7 @@ namespace EridanSharp
             }
             set
             {
-                subject = Utf8EncodeSubject(value);
+                subject = Utf8EncodeMimePart(value);
             }
         }
         public string ToEmail
@@ -170,7 +170,7 @@ namespace EridanSharp
             }
             set
             {
-                toName = value;
+                toName = Utf8EncodeMimePart(value);
             }
         }
         public string FromName
@@ -181,7 +181,7 @@ namespace EridanSharp
             }
             set
             {
-                fromName = value;
+                fromName = Utf8EncodeMimePart(value);
             }
         }
         public string FromEmail
@@ -244,8 +244,8 @@ namespace EridanSharp
         public string GetMessage()
         {
             messageBody =
-$@"From: ""{FromName}"" <{FromEmail}>
-To: ""{ToName}"" <{ToEmail}>
+$@"From: {FromName} <{FromEmail}>
+To: {ToName} <{ToEmail}>
 Content-Type: multipart/mixed; boundary=""B164240059B29C0E4EFEC397""
 Subject: {Subject}
 MIME-Version: 1.0 
@@ -323,7 +323,7 @@ Content-Description: {attachment.Item1.Name}
             return Encoding.UTF8.GetString(dataBytes);
         }
 
-        private string Utf8EncodeSubject(string data)
+        private string Utf8EncodeMimePart(string data)
         {
             string template = "=?utf-8?Q?";
             byte[] dBytes = Encoding.UTF8.GetBytes(data);

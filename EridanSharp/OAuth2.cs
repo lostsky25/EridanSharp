@@ -25,7 +25,7 @@ namespace EridanSharp
         private class OAuth2Info
         {
             public string access_token;          // Access token is the thing that applications use to make API requests on behalf of a user.
-            public string authorizationCode;    // The authorization code grant is used when an application exchanges an authorization code for an access token.
+            //public string authorizationCode;    // The authorization code grant is used when an application exchanges an authorization code for an access token.
             public string redirectUri;          // The address wich will open after the authentication.
             public string clientId;             // Client ID from console cloud google.
             public string clientSecret;         // Client secret from console cloud google.
@@ -110,7 +110,7 @@ namespace EridanSharp
             {
                 oAuth2Info.access_token = responseToken["access_token"];
                 oAuth2Info.expires_in = responseToken["expires_in"];
-                File.WriteAllText(pathToken + @"token.json", JsonConvert.SerializeObject(oAuth2Info));
+                File.WriteAllText(pathToken, JsonConvert.SerializeObject(oAuth2Info));
 
                 return true;
             }
@@ -130,9 +130,9 @@ namespace EridanSharp
 
         public async Task<bool> InitializeProfileAsync()
         {
-            if (File.Exists(pathToken + @"token.json"))
+            if (File.Exists(pathToken))
             {
-                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(pathToken + @"token.json"));
+                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(pathToken));
                 string data;
                 try
                 {
@@ -160,9 +160,9 @@ namespace EridanSharp
 
         public bool InitializeProfile()
         {
-            if (File.Exists(pathToken + @"token.json"))
+            if (File.Exists(pathToken))
             {
-                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(pathToken + @"token.json"));
+                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(pathToken));
                 string data;
                 try
                 {
@@ -209,7 +209,7 @@ namespace EridanSharp
             {
                 oAuth2Info.access_token = responseToken["access_token"];
                 oAuth2Info.expires_in = responseToken["expires_in"];
-                File.WriteAllText(pathToken + @"token.json", JsonConvert.SerializeObject(oAuth2Info));
+                File.WriteAllText(pathToken, JsonConvert.SerializeObject(oAuth2Info));
 
                 return true;
             }
@@ -217,9 +217,9 @@ namespace EridanSharp
         }
         public async Task<bool> CheckExistTokenAsync()
         {
-            if (File.Exists(pathToken + @"token.json"))
+            if (File.Exists(pathToken))
             {
-                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(pathToken + @"token.json"));
+                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(pathToken));
                 string data;
                 try
                 {
@@ -249,10 +249,10 @@ namespace EridanSharp
         }
         public bool CheckExistToken()
         {
-            if (File.Exists(pathToken + @"token.json"))
+            if (File.Exists(pathToken))
             {
                 //"https://gmail.googleapis.com/gmail/v1/users/me/profile"
-                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(pathToken + @"token.json"));
+                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(pathToken));
                 string data;
                 try
                 {
@@ -328,7 +328,7 @@ namespace EridanSharp
                 oAuth2Info.expires_in = tokenEndpointDecoded["expires_in"];
                 oAuth2Info.refresh_token = tokenEndpointDecoded["refresh_token"];
 
-                File.WriteAllText(pathToken + @"token.json", JsonConvert.SerializeObject(oAuth2Info));
+                File.WriteAllText(pathToken, JsonConvert.SerializeObject(oAuth2Info));
 
                 if (File.Exists(oAuth2Info.sucessPage))
                 {
@@ -350,7 +350,7 @@ namespace EridanSharp
             httpRequest.Accept = "application/json";
             httpRequest.ContentType = "application/json";
             httpRequest.Headers["Authorization"] = "Bearer " + oAuth2Info.access_token;
-            //File.WriteAllText(pathToken + @"token.json", JsonConvert.SerializeObject(oAuth2Info));
+            //File.WriteAllText(pathToken, JsonConvert.SerializeObject(oAuth2Info));
 
             string data = "{\"raw\":" + $" \"{message.GetMessageBase64()}" + @"""}";
 

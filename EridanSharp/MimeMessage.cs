@@ -244,8 +244,8 @@ namespace EridanSharp
         public string GetMessage()
         {
             messageBody =
-$@"From: {FromEmail}
-To: {ToEmail}
+$@"From: ""{FromName}"" <{FromEmail}>
+To: ""{ToName}"" <{ToEmail}>
 Content-Type: multipart/mixed; boundary=""B164240059B29C0E4EFEC397""
 Subject: {Subject}
 MIME-Version: 1.0 

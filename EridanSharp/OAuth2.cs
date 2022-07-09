@@ -18,12 +18,14 @@ namespace EridanSharp
         private HttpListenerContext context;
         private OAuth2Info oAuth2Info;
         private OAuth2Request oAuth2Request;
+        private OAuth2Profile oAuth2Profile;
         private HttpReq httpReq;
+        private string pathToken;
 
         private class OAuth2Info
         {
             public string access_token;          // Access token is the thing that applications use to make API requests on behalf of a user.
-            public string authorizationCode;    // The authorization code grant is used when an application exchanges an authorization code for an access token.
+            //public string authorizationCode;    // The authorization code grant is used when an application exchanges an authorization code for an access token.
             public string redirectUri;          // The address wich will open after the authentication.
             public string clientId;             // Client ID from console cloud google.
             public string clientSecret;         // Client secret from console cloud google.
@@ -44,11 +46,14 @@ namespace EridanSharp
             public readonly string grantType = "authorization_code";                              // “grant type” refers to the way an application gets an access token.
         }
 
-        public OAuth2(string clientId, string clientSecret, string sucessPage, string unsucessPage)
+        public OAuth2(string clientId, string clientSecret, string sucessPage, string unsucessPage, string pathToken)
         {
             oAuth2Info = new OAuth2Info();
             oAuth2Request = new OAuth2Request();
+            oAuth2Profile = new OAuth2Profile();
             httpReq = new HttpReq();
+
+            this.pathToken = pathToken;
 
             if (sucessPage != null)
             {
@@ -105,11 +110,82 @@ namespace EridanSharp
             {
                 oAuth2Info.access_token = responseToken["access_token"];
                 oAuth2Info.expires_in = responseToken["expires_in"];
-                File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
+                File.WriteAllText(pathToken + @"token.json", JsonConvert.SerializeObject(oAuth2Info));
 
                 return true;
             }
+        }
 
+        public OAuth2Profile GetProfile()
+        {
+            if (oAuth2Profile != null)
+            {
+                return oAuth2Profile;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        public async Task<bool> InitializeProfileAsync()
+        {
+            if (File.Exists(pathToken + @"token.json"))
+            {
+                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(pathToken + @"token.json"));
+                string data;
+                try
+                {
+                    data = await httpReq.SendGetBearerAuthRequestAsync("https://gmail.googleapis.com/gmail/v1/users/me/profile", oAuth2Info.access_token);
+                    Dictionary<string, string> profile = JsonConvert.DeserializeObject<Dictionary<string, string>>(data);
+
+                    oAuth2Profile.EmailAddress = profile["emailAddress"];
+                    oAuth2Profile.MessagesTotal = profile["messagesTotal"];
+                    oAuth2Profile.ThreadsTotal = profile["threadsTotal"];
+                    oAuth2Profile.HistoryId = profile["historyId"];
+
+                    return true;
+                }
+                catch (WebException ex)
+                {
+                    Debug.WriteLine("WebExeption: " + ex.Message);
+                    return false;
+                }
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        public bool InitializeProfile()
+        {
+            if (File.Exists(pathToken + @"token.json"))
+            {
+                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(pathToken + @"token.json"));
+                string data;
+                try
+                {
+                    data = httpReq.SendGetBearerAuthRequest("https://gmail.googleapis.com/gmail/v1/users/me/profile", oAuth2Info.access_token);
+                    Dictionary<string, string> profile = JsonConvert.DeserializeObject<Dictionary<string, string>>(data);
+
+                    oAuth2Profile.EmailAddress = profile["emailAddress"];
+                    oAuth2Profile.MessagesTotal = profile["messagesTotal"];
+                    oAuth2Profile.ThreadsTotal = profile["threadsTotal"];
+                    oAuth2Profile.HistoryId = profile["historyId"];
+
+                    return true;
+                }
+                catch (WebException ex)
+                {
+                    Debug.WriteLine("WebExeption: " + ex.Message);
+                    return false;
+                }
+            }
+            else
+            {
+                return false;
+            }
         }
 
         private bool RefreshToken()
@@ -133,7 +209,7 @@ namespace EridanSharp
             {
                 oAuth2Info.access_token = responseToken["access_token"];
                 oAuth2Info.expires_in = responseToken["expires_in"];
-                File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
+                File.WriteAllText(pathToken + @"token.json", JsonConvert.SerializeObject(oAuth2Info));
 
                 return true;
             }
@@ -141,10 +217,9 @@ namespace EridanSharp
         }
         public async Task<bool> CheckExistTokenAsync()
         {
-            if (File.Exists(@"token.json"))
+            if (File.Exists(pathToken + @"token.json"))
             {
-                //"https://gmail.googleapis.com/gmail/v1/users/me/profile"
-                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(@"token.json"));
+                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(pathToken + @"token.json"));
                 string data;
                 try
                 {
@@ -174,10 +249,10 @@ namespace EridanSharp
         }
         public bool CheckExistToken()
         {
-            if (File.Exists(@"token.json"))
+            if (File.Exists(pathToken + @"token.json"))
             {
                 //"https://gmail.googleapis.com/gmail/v1/users/me/profile"
-                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(@"token.json"));
+                oAuth2Info = JsonConvert.DeserializeObject<OAuth2Info>(File.ReadAllText(pathToken + @"token.json"));
                 string data;
                 try
                 {
@@ -253,7 +328,7 @@ namespace EridanSharp
                 oAuth2Info.expires_in = tokenEndpointDecoded["expires_in"];
                 oAuth2Info.refresh_token = tokenEndpointDecoded["refresh_token"];
 
-                File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
+                File.WriteAllText(pathToken + @"token.json", JsonConvert.SerializeObject(oAuth2Info));
 
                 if (File.Exists(oAuth2Info.sucessPage))
                 {
@@ -276,11 +351,11 @@ namespace EridanSharp
             httpRequest.Accept = "application/json";
             httpRequest.ContentType = "application/json";
             httpRequest.Headers["Authorization"] = "Bearer " + oAuth2Info.access_token;
-            //File.WriteAllText(@"token.json", JsonConvert.SerializeObject(oAuth2Info));
+            //File.WriteAllText(pathToken + @"token.json", JsonConvert.SerializeObject(oAuth2Info));
 
             string data = "{\"raw\":" + $" \"{message.GetMessageBase64()}" + @"""}";
 
-            using (var streamWriter = new StreamWriter(httpRequest.GetRequestStream()))
+            using (var streamWriter = new StreamWriter(await httpRequest.GetRequestStreamAsync()))
             {
                 streamWriter.Write(data);
             }
@@ -308,6 +383,58 @@ namespace EridanSharp
             var port = ((IPEndPoint)listener.LocalEndpoint).Port;
             listener.Stop();
             return port;
+        }
+    }
+    public class OAuth2Profile
+    {
+        private string emailAddress;
+        private string messagesTotal;
+        private string threadsTotal;
+        private string historyId;
+
+        public string EmailAddress
+        {
+            get
+            {
+                return emailAddress;
+            }
+            set
+            {
+                emailAddress = value;
+            }
+        }
+        public string MessagesTotal
+        {
+            get
+            {
+                return messagesTotal;
+            }
+            set
+            {
+                messagesTotal = value;
+            }
+        }
+        public string ThreadsTotal
+        {
+            get
+            {
+                return threadsTotal;
+            }
+            set
+            {
+                threadsTotal = value;
+            }
+        }
+        public string HistoryId
+        {
+            get
+            {
+                return historyId;
+            }
+            set
+            {
+                historyId = value;
+            }
         }
     }
 }

@@ -13,11 +13,6 @@ namespace EridanSharp
 
     class HttpReq : IInternetReq
     {
-        private string method;
-        private string accept;
-        private string contentType;
-        private string contentLength;
-
         public async Task<string> SendGetBearerAuthRequestAsync(string url, string token)
         {
             string data = "";

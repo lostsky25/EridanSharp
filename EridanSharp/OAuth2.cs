@@ -340,6 +340,66 @@ namespace EridanSharp
             //StartTimer();
             return true;
         }
+        public bool Authentication()
+        {
+
+            Debug.WriteLine("Start authentication.");
+            // Creates a redirect URI using an available port on the loopback address.
+            oAuth2Info.redirectUri = $"http://{IPAddress.Loopback}:{GetRandomUnusedPort()}/";
+            Debug.WriteLine("Redirect URI: " + oAuth2Info.redirectUri);
+
+            // Creates an HttpListener to listen for requests on that redirect URI.
+            var http = new HttpListener();
+            http.Prefixes.Add(oAuth2Info.redirectUri);
+            Debug.WriteLine("Listening..");
+            http.Start();
+            // Creates the OAuth 2.0 authorization request.
+            string authorizationRequest =
+                oAuth2Request.requestAPI +
+                "?response_type=" + oAuth2Request.responseType +
+                "&scope=" + oAuth2Request.scope +
+                "&access_type=" + oAuth2Request.accessType +
+                "&include_granted_scopes=" + oAuth2Request.includeGrantedScopes +
+                "&state=" + oAuth2Request.state +
+                "&client_id=" + oAuth2Info.clientId +
+                "&redirect_uri=" + oAuth2Info.redirectUri;
+
+            // Opens request in the browser.
+            Process.Start(authorizationRequest);
+
+            // Waits for the OAuth authorization response.
+            context = http.GetContext();
+
+            // Makes token request.
+            string data = "code=" + GetContextValue("code") + "&client_id=" + oAuth2Info.clientId + "&client_secret=" + oAuth2Info.clientSecret + "&redirect_uri=" + oAuth2Info.redirectUri + "&grant_type=" + oAuth2Request.grantType;
+
+            Dictionary<string, string> tokenEndpointDecoded = httpReq.SendPostRequest("https://accounts.google.com/o/oauth2/token", data);
+            if (tokenEndpointDecoded.ContainsKey("error"))
+            {
+                if (File.Exists(oAuth2Info.unsucessPage))
+                {
+                    Process.Start(oAuth2Info.unsucessPage);
+                }
+                return false;
+            }
+            else
+            {
+                oAuth2Info.access_token = tokenEndpointDecoded["access_token"];
+                oAuth2Info.expires_in = tokenEndpointDecoded["expires_in"];
+                oAuth2Info.refresh_token = tokenEndpointDecoded["refresh_token"];
+
+                File.WriteAllText(pathToken, JsonConvert.SerializeObject(oAuth2Info));
+
+                if (File.Exists(oAuth2Info.sucessPage))
+                {
+                    Process.Start(oAuth2Info.sucessPage);
+                }
+            }
+
+            RefreshToken();
+            //StartTimer();
+            return true;
+        }
         public int Send(MimeMessage message)
         {
             var url = "https://www.googleapis.com/gmail/v1/users/me/messages/send";

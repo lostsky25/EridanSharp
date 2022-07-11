@@ -6,6 +6,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +22,7 @@ namespace EridanSharp
         private OAuth2Profile oAuth2Profile;
         private HttpReq httpReq;
         private string pathToken;
+        private System.Timers.Timer timerRefresh;
 
         private class OAuth2Info
         {
@@ -78,10 +80,11 @@ namespace EridanSharp
         }
         public void StartTimer()
         {
-            System.Timers.Timer t = new System.Timers.Timer(1800000);
-            t.AutoReset = true;
-            t.Elapsed += new ElapsedEventHandler(OnTimedEvent);
-            t.Start();
+            timerRefresh = new System.Timers.Timer(1800000);
+            timerRefresh.AutoReset = true;
+            timerRefresh.Elapsed += new ElapsedEventHandler(OnTimedEvent);
+            RefreshToken();
+            timerRefresh.Start();
         }
 
         private async void OnTimedEvent(Object source, ElapsedEventArgs e)
@@ -224,6 +227,10 @@ namespace EridanSharp
                 try
                 {
                     data = await httpReq.SendGetBearerAuthRequestAsync("https://gmail.googleapis.com/gmail/v1/users/me/profile", oAuth2Info.access_token);
+                    if (timerRefresh == null)
+                    {
+                        StartTimer();
+                    }
                     return true;
                 }
                 catch (WebException ex)
@@ -232,6 +239,10 @@ namespace EridanSharp
                     if (await RefreshTokenAsync())
                     {
                         Debug.WriteLine("Refresh token was completed.");
+                        if (timerRefresh == null)
+                        {
+                            StartTimer();
+                        }
                         return true;
                     }
                     else
@@ -257,6 +268,10 @@ namespace EridanSharp
                 try
                 {
                     data = httpReq.SendGetBearerAuthRequest("https://gmail.googleapis.com/gmail/v1/users/me/profile", oAuth2Info.access_token);
+                    if (timerRefresh == null)
+                    {
+                        StartTimer();
+                    }
                     return true;
                 }
                 catch (WebException ex)
@@ -265,6 +280,10 @@ namespace EridanSharp
                     if (RefreshToken())
                     {
                         Debug.WriteLine("Refresh token was completed.");
+                        if (timerRefresh == null)
+                        {
+                            StartTimer();
+                        }
                         return true;
                     }
                     else
@@ -316,10 +335,6 @@ namespace EridanSharp
             Dictionary<string, string> tokenEndpointDecoded = await httpReq.SendPostRequestAsync("https://accounts.google.com/o/oauth2/token", data);
             if (tokenEndpointDecoded.ContainsKey("error"))
             {
-                if (File.Exists(oAuth2Info.unsucessPage))
-                {
-                    Process.Start(oAuth2Info.unsucessPage);
-                }
                 return false;
             }
             else
@@ -330,16 +345,16 @@ namespace EridanSharp
 
                 File.WriteAllText(pathToken, JsonConvert.SerializeObject(oAuth2Info));
 
-                if (File.Exists(oAuth2Info.sucessPage))
-                {
-                    Process.Start(oAuth2Info.sucessPage);
-                }
             }
 
             await RefreshTokenAsync();
-            //StartTimer();
+            if (timerRefresh == null)
+            {
+                StartTimer();
+            }
             return true;
         }
+
         public bool Authentication()
         {
 
@@ -397,10 +412,30 @@ namespace EridanSharp
             }
 
             RefreshToken();
-            //StartTimer();
+            if (timerRefresh == null)
+            {
+                StartTimer();
+            }
             return true;
         }
-        public int Send(MimeMessage message)
+
+        public void ShowSucessPage()
+        {
+            if (File.Exists(oAuth2Info.sucessPage))
+            {
+                Process.Start(oAuth2Info.sucessPage);
+            }
+        }
+
+        public void ShowUnsucessPage()
+        {
+            if (File.Exists(oAuth2Info.unsucessPage))
+            {
+                Process.Start(oAuth2Info.unsucessPage);
+            }
+        }
+
+        public void Send(MimeMessage message)
         {
             var url = "https://www.googleapis.com/gmail/v1/users/me/messages/send";
 
@@ -425,9 +460,7 @@ namespace EridanSharp
                 var result = streamReader.ReadToEnd();
             }
 
-            Debug.WriteLine(httpResponse.StatusCode);
-
-            return 0;
+            return;
         }
 
         public string GetContextValue(string name)

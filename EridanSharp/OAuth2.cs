@@ -391,10 +391,6 @@ namespace EridanSharp
             Dictionary<string, string> tokenEndpointDecoded = httpReq.SendPostRequest("https://accounts.google.com/o/oauth2/token", data);
             if (tokenEndpointDecoded.ContainsKey("error"))
             {
-                if (File.Exists(oAuth2Info.unsucessPage))
-                {
-                    Process.Start(oAuth2Info.unsucessPage);
-                }
                 return false;
             }
             else
@@ -404,11 +400,6 @@ namespace EridanSharp
                 oAuth2Info.refresh_token = tokenEndpointDecoded["refresh_token"];
 
                 File.WriteAllText(pathToken, JsonConvert.SerializeObject(oAuth2Info));
-
-                if (File.Exists(oAuth2Info.sucessPage))
-                {
-                    Process.Start(oAuth2Info.sucessPage);
-                }
             }
 
             RefreshToken();

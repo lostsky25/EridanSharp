@@ -25,7 +25,7 @@ static int Main(string[] args)
 
     Gmail gmail = new Gmail(clientId, clientSecret, pathSuccessPage, pathUnsuccessPage, pathToken);
 
-    bool existToken = false;
+    bool existToken = gmail.CheckExistToken();
 
     if (!existToken)
     {

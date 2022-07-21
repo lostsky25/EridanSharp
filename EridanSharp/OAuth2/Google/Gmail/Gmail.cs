@@ -164,6 +164,7 @@ namespace EridanSharp
                     var response = JsonConvert.DeserializeObject<Dictionary<string, string>>(httpReq.SendPostRequest(_req_token, data));
                     if (response.ContainsKey("error"))
                     {
+                        ShowUnsucessPage();
                         return false;
                     }
                     else
@@ -183,6 +184,7 @@ namespace EridanSharp
                     {
                         StartTimer();
                     }
+                    ShowSucessPage();
                     return true;
                 }
                 public bool CheckExistToken()
@@ -298,35 +300,35 @@ namespace EridanSharp
             #endregion
 
             #region Async
-            public async Task<bool> AuthenticationAsync()
-                    {
+                public async Task<bool> AuthenticationAsync()
+                {
 
-                        Debug.WriteLine("Start authentication.");
-                        // Creates a redirect URI using an available port on the loopback address.
-                        redirectUri = $"http://{IPAddress.Loopback}:{GetRandomUnusedPort()}/";
-                        Debug.WriteLine("Redirect URI: " + redirectUri);
+                    Debug.WriteLine("Start authentication.");
+                    // Creates a redirect URI using an available port on the loopback address.
+                    redirectUri = $"http://{IPAddress.Loopback}:{GetRandomUnusedPort()}/";
+                    Debug.WriteLine("Redirect URI: " + redirectUri);
 
-                        // Creates an HttpListener to listen for requests on that redirect URI.
-                        var http = new HttpListener();
-                        http.Prefixes.Add(redirectUri);
-                        Debug.WriteLine("Listening..");
-                        http.Start();
-                        // Creates the OAuth 2.0 authorization request.
-                        string authorizationRequest =
-                            oAuth2Request.requestAPI +
-                            "?response_type=" + oAuth2Request.responseType +
-                            "&scope=" + oAuth2Request.scope +
-                            "&access_type=" + oAuth2Request.accessType +
-                            "&include_granted_scopes=" + oAuth2Request.includeGrantedScopes +
-                            "&state=" + oAuth2Request.state +
-                            "&client_id=" + clientId +
-                            "&redirect_uri=" + redirectUri;
+                    // Creates an HttpListener to listen for requests on that redirect URI.
+                    var http = new HttpListener();
+                    http.Prefixes.Add(redirectUri);
+                    Debug.WriteLine("Listening..");
+                    http.Start();
+                    // Creates the OAuth 2.0 authorization request.
+                    string authorizationRequest =
+                        oAuth2Request.requestAPI +
+                        "?response_type=" + oAuth2Request.responseType +
+                        "&scope=" + oAuth2Request.scope +
+                        "&access_type=" + oAuth2Request.accessType +
+                        "&include_granted_scopes=" + oAuth2Request.includeGrantedScopes +
+                        "&state=" + oAuth2Request.state +
+                        "&client_id=" + clientId +
+                        "&redirect_uri=" + redirectUri;
 
-                        // Opens request in the browser.
-                        Process.Start(authorizationRequest);
+                    // Opens request in the browser.
+                    Process.Start(authorizationRequest);
 
-                        // Waits for the OAuth authorization response.
-                        context = await http.GetContextAsync();
+                    // Waits for the OAuth authorization response.
+                    context = await http.GetContextAsync();
 
                     // Makes token request.
                     string data =
@@ -339,6 +341,7 @@ namespace EridanSharp
                     var response = JsonConvert.DeserializeObject<Dictionary<string, string>>(await httpReq.SendPostRequestAsync(_req_token, data));
                     if (response.ContainsKey("error"))
                     {
+                        ShowUnsucessPage();
                         return false;
                     }
                     else
@@ -358,6 +361,7 @@ namespace EridanSharp
                     {
                         StartTimer();
                     }
+                    ShowSucessPage();
                     return true;
                 }
                 public async Task<bool> CheckExistTokenAsync()

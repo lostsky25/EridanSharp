@@ -51,9 +51,9 @@ namespace EridanSharp
 
             return data;
         }
-        public async Task<Dictionary<string, string>> SendPostRequestAsync(string url, string data)
+        public async Task<string> SendPostRequestAsync(string url, string data)
         {
-            Dictionary<string, string> tokenEndpointDecoded = new Dictionary<string, string>();
+            string responseText;
             // Sends the request
             HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create(url);
             tokenRequest.Method = "POST";
@@ -73,15 +73,11 @@ namespace EridanSharp
                 using (StreamReader reader = new StreamReader(tokenResponse.GetResponseStream()))
                 {
                     // reads response body
-                    string responseText = await reader.ReadToEndAsync();
+                    responseText = await reader.ReadToEndAsync();
                     Debug.WriteLine(responseText);
 
-                    // converts to dictionary
-                    tokenEndpointDecoded = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
 
-
-
-                    return tokenEndpointDecoded;
+                    return responseText;
                 }
             }
             catch (WebException ex)
@@ -95,18 +91,17 @@ namespace EridanSharp
                         using (StreamReader reader = new StreamReader(response.GetResponseStream()))
                         {
                             // reads response body
-                            string responseText = await reader.ReadToEndAsync();
-                            tokenEndpointDecoded = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
+                            responseText = await reader.ReadToEndAsync();
                             Debug.WriteLine(responseText);
+                            return responseText;
                         }
                     }
                 }
-                return tokenEndpointDecoded;
+                return @"{ ""error"": ""Not response"" }";
             }
         }
-        public Dictionary<string, string> SendPostRequest(string url, string data)
+        public string SendPostRequest(string url, string data)
         {
-            Dictionary<string, string> tokenEndpointDecoded = new Dictionary<string, string>();
             // Sends the request
             HttpWebRequest tokenRequest = (HttpWebRequest)WebRequest.Create(url);
             tokenRequest.Method = "POST";
@@ -129,12 +124,7 @@ namespace EridanSharp
                     string responseText = reader.ReadToEnd();
                     Debug.WriteLine(responseText);
 
-                    // converts to dictionary
-                    tokenEndpointDecoded = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
-
-
-
-                    return tokenEndpointDecoded;
+                    return responseText;
                 }
             }
             catch (WebException ex)
@@ -149,13 +139,14 @@ namespace EridanSharp
                         {
                             // reads response body
                             string responseText = reader.ReadToEnd();
-                            tokenEndpointDecoded = JsonConvert.DeserializeObject<Dictionary<string, string>>(responseText);
                             Debug.WriteLine(responseText);
+                            return responseText;
                         }
                     }
                 }
-                return tokenEndpointDecoded;
+                return @"{ ""error"": ""Not response"" }";
             }
         }
+
     }
 }

@@ -10,7 +10,7 @@ namespace EridanSharp
     {
         Task<string> SendGetBearerAuthRequestAsync(string url, string token);
         string SendGetBearerAuthRequest(string url, string token);
-        Task<Dictionary<string, string>> SendPostRequestAsync(string url, string data);
-        Dictionary<string, string> SendPostRequest(string url, string data);
+        Task<string> SendPostRequestAsync(string url, string data);
+        string SendPostRequest(string url, string data);
     }
 }

@@ -6,6 +6,9 @@
 *.user
 *.sln.docstates
 
+# Test project folder
+TestConsole/
+
 # Bat files
 *.bat
 

@@ -13,7 +13,7 @@ Support formats: ```aac```, ```abw```, ```arc```, ```avi```, ```azw```, ```bin``
 If you did not find the required file format, then it will be interpreted as base binary data type.
 
 ## Examples
-### Send email via gmail (OAuth2)
+### Send email via gmail (OAuth2) (Use the latest version of NuGet Package)
 ```csharp
 static int Main(string[] args)
 {
